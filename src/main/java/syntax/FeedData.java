@@ -7,6 +7,8 @@ public class FeedData {
 
 
     public static final String  ASYNC   = "ASYNC",
+                                CLEAR   = "CLEAR",
+                                PARENT  = "PARENT",
                                 SYNC    = "SYNC",
                                 VISIBLE = "VISIBLE";
 

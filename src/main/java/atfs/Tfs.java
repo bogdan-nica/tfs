@@ -23,6 +23,12 @@ public abstract class Tfs implements iTfs {
     protected List<PassFail> reports;
     protected WebDriver _driver;
 
+    /**
+     * holds all chromedrivers that are presently open,
+     * to prevent closing one that didn't finissh the test
+     */
+    protected ConcurrentHashMap<Integer, String> drvrs;
+
     protected String _driverSessionId = "";
 
 
@@ -31,7 +37,9 @@ public abstract class Tfs implements iTfs {
     }
 
     protected void initialize() {
+        //prepare collections for parallel access:
         this.locals = Common.calculateSegmentSize(Common.NUM_CORES);
+        this.drvrs = Common.calculateSegmentSize(Common.NUM_CORES);
         reports = new ArrayList<>();
     }
 
@@ -63,4 +71,11 @@ public abstract class Tfs implements iTfs {
         return text;
     }
 
+    protected static void pause(long miliseconds) {
+        try {
+            Thread.sleep(miliseconds);
+        } catch (InterruptedException ie) {
+            ie.printStackTrace();
+        }
+    }
 }

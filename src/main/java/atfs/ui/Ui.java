@@ -2,10 +2,7 @@ package atfs.ui;
 
 import atfs.Tfs;
 import interfaces.iUi;
-import lib.Common;
-import lib.FileHelper;
-import lib.NowHelper;
-import lib.RegexHelper;
+import lib.*;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -13,6 +10,7 @@ import org.openqa.selenium.interactions.Actions;
 import syntax.*;
 import org.openqa.selenium.WebDriver;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Ui extends Tfs implements iUi {
@@ -32,7 +30,7 @@ public class Ui extends Tfs implements iUi {
 
     @Override
     public Ui click(FeedData feed) {
-        reset();
+        setInstructUi(feed);
         String data = super.replaceKeys(
                 Common.restoreExceptedChars(
                         Common.replaceExceptedChars(feed.getData())));
@@ -63,7 +61,7 @@ public class Ui extends Tfs implements iUi {
             System.out.println(msg);
         }
         if(wait.getUntil().isEmpty()){
-            Common.pause(wait.getMax());
+            super.pause(wait.getMax());
         }
         return this;
     }
@@ -99,7 +97,7 @@ public class Ui extends Tfs implements iUi {
 
     @Override
     public Ui text(FeedData feed) {
-        reset();
+        setInstructUi(feed);
         String data = super.replaceKeys(feed.getData());
         StringAndKeys sk = analizeTextInstruct(feed);
         //String condition = super.replaceKeys(super.getConditionFromAstfCommand());
@@ -142,7 +140,7 @@ public class Ui extends Tfs implements iUi {
      */
     @Override
     public Ui find(FeedData feed) {
-        reset();
+        setInstructUi(feed);
         String xpath = feed.getData();
         String instruct = TfsVars.replaceKeys(Common.replaceExceptedChars(feed.getInstruct()), super.locals);
         StringAndKeys sk = new StringAndKeys(instruct);
@@ -187,7 +185,7 @@ public class Ui extends Tfs implements iUi {
 
     @Override
     public Ui get(FeedData feed) {
-        reset();
+        setInstructUi(feed);
         String url = super.replaceKeys(feed.getData());
         WaitMaxUntil wait = new WaitMaxUntil(
                 super.replaceKeys(feed.getInstruct()));
@@ -217,16 +215,17 @@ public class Ui extends Tfs implements iUi {
 
     @Override
     public Ui pause(FeedData feed) {
-        long val = NowHelper.getMillisec(super.replaceKeys(feed.getData()));
-        Common.pause(val);
-        return null;
+        try {
+            long val = NowHelper.getMillisec(super.replaceKeys(feed.getData()));
+            super.pause(val);
+        }catch (Exception ex){}
+        return this;
     }
 
     @Override
     public Ui pause(String input) {
-        long val = NowHelper.getMillisec(super.replaceKeys(input));
-        Common.pause(val);
-        return this;
+        FeedData fd = createFeed(PAUSE, input, false, "");
+        return pause(fd);
     }
 
     @Override
@@ -246,7 +245,9 @@ public class Ui extends Tfs implements iUi {
         //java.awt.Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
         switch(browser.toLowerCase()){
             case "chrome":
-                openChrome();
+                synchronized (this) {
+                    openChrome("chromedriver.exe");
+                }
                 break;
             case "firefox":
                 String path = "./resources/drivers/geckodriver-v0.24.0-win64/geckodriver.exe";
@@ -258,11 +259,12 @@ public class Ui extends Tfs implements iUi {
         return this;
     }
 
-    private void openChrome() {
+    private void openChrome(String name) {
         boolean found = Common.chromeVersion > 0;
         if (!found) {
-            startChromeFindVersion();
+            startChromeFindVersion(name);
         } else {
+            getInitialCollection(name);
             String path = String.format("%s/chromedriver_win32_%d/chromedriver.exe",
                                         Common.relPath,Common.chromeVersion);
             System.setProperty("webdriver.chrome.driver", path);
@@ -270,6 +272,7 @@ public class Ui extends Tfs implements iUi {
         }
         _driverSessionId = ((ChromeDriver) _driver).getSessionId().toString();
         System.out.println(" | " + _driverSessionId);
+        trySetDrvrPID(name);
     }
 
     /**
@@ -277,7 +280,7 @@ public class Ui extends Tfs implements iUi {
      * for future tests.
      * this should run only once
      */
-    private void startChromeFindVersion(){
+    private void startChromeFindVersion(String name){
         int minVersion = 74;
         int maxVersion = 79;
         int i = minVersion;
@@ -285,6 +288,7 @@ public class Ui extends Tfs implements iUi {
             String path =  String.format("%s/chromedriver_win32_%d/chromedriver.exe", Common.relPath, i);
             System.setProperty("webdriver.chrome.driver", path);
             try {
+                getInitialCollection(name);
                 _driver = new ChromeDriver();
                 Common.chromeVersion = i;
                 String pathVersion = FileHelper.getAbsolute(path.split("src/")[0] + "chromeVersion.txt");
@@ -300,7 +304,7 @@ public class Ui extends Tfs implements iUi {
     public Ui stop() {
 
         _driver.close();
-        //killDriver();
+        killDriver();
         return this;
     }
 
@@ -424,12 +428,64 @@ public class Ui extends Tfs implements iUi {
 
     public WebDriver getDriver(){return _driver;}
 
-    private void reset(){
 
+    private  void getInitialCollection(String drvName){
+        drvrs = ProcessHelper.findProcesses(drvName, "tasklist");
+    }
+
+    /***
+     * holds chromedriver PID
+     */
+    private int driverPID = -1;
+    private void trySetDrvrPID(String drvName) {
+        ConcurrentHashMap<Integer, String> found = ProcessHelper.findProcesses(drvName, "tasklist");
+        if (found.size() > 0 && drvrs.size() == found.size() - 1) {
+            for (Integer key : found.keySet()) {
+                if (drvrs.get(key) == null) {
+                    driverPID = key;
+                    System.out.println("SET driverPID to " + driverPID + " PID");
+                    break;
+                }
+            }
+            drvrs = found;
+        } else {
+            System.out.println("CANNOT determine the " + drvName + " PID");
+        }
+    }
+
+    private void killDriver() {
+        if (driverPID > 100) {
+            String command = String.format("taskkill /F /PID %d", driverPID);
+            ProcessHelper.run(command);
+        }
+    }
+
+    private void setInstructUi(FeedData feed) {
+        reset();
+        if(feed.getInstruct().isEmpty()) return;
+
+        String[] split = feed.getInstruct().split(",");
+        for (String val : split) {
+            switch (val) {
+                case FeedData.CLEAR:
+                    this.setIsClear(true);
+                    break;
+                case FeedData.PARENT:
+                    this.setIsParent(true);
+                    break;
+                case FeedData.VISIBLE:
+                    this.setIsVisible(true);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private void reset(){
         isClear = false;
         isParent = false;
         isVisible = false;
-
     }
     private boolean isClear;
 

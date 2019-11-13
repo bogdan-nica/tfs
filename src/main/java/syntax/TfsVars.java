@@ -45,6 +45,9 @@ public class TfsVars {
         switch (keyStartsWith) {
             case "int":
                 String val = replaceKeys(Common.restoreExceptedChars(value.trim()), coll);
+                return Utils.parseInt(val);
+            case "bool":
+                val = replaceKeys(Common.restoreExceptedChars(value.trim()), coll);
                 return Boolean.parseBoolean(val);
             default:
                 return replaceKeys(Common.restoreExceptedChars(value.trim()), coll);

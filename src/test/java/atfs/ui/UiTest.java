@@ -14,17 +14,21 @@ public class UiTest {
 
         /**
          * below the approach that is using just one call
+         * NOTE: except syntax chars : ;
          */
         ui = ui.run("SET server:google;url.root:https\\://www.${server}.com;")
                .run("SET url:${url.root};")
                .run("SET exp.xpath://*[contains(.,'Google')];")
                .run("START Chrome")
                .run("GET ${url}|SYNC?MAX 15sec,UNTIL ${exp.xpath}")
-               .run("ASSERT THIS CONTAINS ${exp.xpath}|SYNC?Failed to load page");
+               .run("ASSERT THIS CONTAINS ${exp.xpath}|SYNC?Failed to load page")
+               .run("PAUSE 5sec")
+               .run("STOP Chrome");
 
         int res = ui.getResults();
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
+
     }
 
     @Test
@@ -45,49 +49,97 @@ public class UiTest {
         assertTrue(ui.getResults() == 0);
 
         //Pause for given time and close the browser:
-        ui.pause("30sec")
-                .stop();
+        System.out.println("Browser and chromedriver will close after 5 sec!");
+        ui = ui.pause("5sec")
+               .stop();
     }
-
 
     @Test
     public void testExample2UsingRun() {
         iUi ui = new Ui();
-
-        ui = ui.run("")
-                .run("");
+        //NOTE: below use straight values, no SET values type ${}
+        //      however repetition of the same string in
+        //      multiple placesis not a good approach
+        ui = ui.run("START Chrome")
+                .run("GET https://www.google.com/|SYNC?MAX 15sec,UNTIL //*[contains(.,'Google')]")
+                .run("ASSERT THIS CONTAINS //*[contains(.,'Google')]|SYNC?Failed to load page")
+                .run("TEXT mobile integration workgroup|SYNC?//input[@name=\"q\"]")
+                .run("CLICK //input[@type=\"submit\"]|SYNC?MAX 20sec,UNTIL //*[contains(.,'mobile integration')]")
+                .run("ASSERT THIS CONTAINS //*[contains(.,'mobile integration workgroup')]|SYNC?Failed to perform search");
 
         int res = ui.getResults();
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
+
+        System.out.println("Browser and chromedriver will close after 5 sec!");
+        ui = ui.run("PAUSE 5sec")
+               .run("STOP Chrome");
     }
 
     @Test
     public void testExample2UsingAtomicActions() {
         iUi ui = new Ui();
 
-        ui = ui.set("")
-                .start("");//....
+        ui = ui.set("url:https\\://www.google.com/;exp.xpath://*[contains(.,'Google')];")
+                .set("look.for:mobile integration workgroup")
+                .start("Chrome")
+                .get("${url}", "MAX 15sec,UNTIL ${exp.xpath}", false)
+                .assertUi("THIS CONTAINS ${exp.xpath}", "Failed to load page", false)
+                .text("${look.for}", "//input[@name=\"q\"]", false)
+                .click("//input[@type=\"submit\"]",
+                        "MAX 20sec,UNTIL //*[contains(.,'${look.for}')]",false)
+                .assertUi("THIS CONTAINS //*[contains(.,'${look.for}')]",
+                        "Failed to perform search",false)
+                .pause("5sec")
+                .stop();
+
 
         int res = ui.getResults();
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
-
-        //Pause for given time and close the browser:
-        ui.pause("30sec")
-                .stop();
     }
 
     @Test
     public void testExample3UsingRun() {
         iUi ui = new Ui();
 
-        ui = ui.run("")
-                .run("");
+        /**NOTE: reusing the begining of test1 and change "server" and "exp.xpath"
+         * there is an automated gmail search script using the same approach
+         * the mail class is not included in this project
+         */
+        ui = ui.run("SET server:rbauction;url.root:https\\://www.${server}.com;")
+                .run("SET url:${url.root};")
+                .run("SET exp.xpath://*[contains(.,'auction')];")
+                .run("SET int.year:2019 - 2;")
+                .run("START Chrome")
+                .run("GET ${url}|SYNC?MAX 15sec,UNTIL ${exp.xpath}")
+                .run("ASSERT THIS CONTAINS ${exp.xpath}|SYNC?Failed to load page")
+                .run("SET user.email:bogdan.nica.van@gmail.com;user.pass:Bogdan1234")
+                .run("CLICK //a[contains(.,'Sign In')]|SYNC?MAX 20sec,UNTIL //*[contains(@id,'_login')]")
+                .run("TEXT ${user.email}|SYNC?//*[contains(@id,'_login')]")//*[@id="_58_login"]
+                .run("TEXT ${user.pass}|SYNC?//*[contains(@id,'_password')]")
+                .run("CLICK //input[@title='Sign In']|SYNC?MAX 15sec,UNTIL //*[contains(.,'Hello b')]")
+                .run("ASSERT THIS CONTAINS //*[contains(.,'Hello b')]|SYNC?Failed to login")
+                .run("TEXT excavator|SYNC?//*[@id=\"simple-keyword-search\"]")//*[@id="simple-keyword-search"]
+                .run("CLICK //*[@id=\"keyword-submit\"]|SYNC?MAX 25sec,UNTIL //*[contains(.,'excavator')],VISIBLE")//*[@id="keyword-submit"]
+                .run("ASSERT THIS CONTAINS //button[contains(.,'Add to Watchlist')]|SYNC?Failed to search")
+                //.run("CLICK //label[contains(.,'CATERPILLAR')]|SYNC?MAX 25sec,UNTIL //*[contains(.,'${int.year}') and contains(.,'CATERPILLAR')],VISIBLE")//*[@id="manufacturer_year_dt"]/div/div/div/div[1]/input[1]
+                //.run("TEXT ${int.year}|SYNC?//*[contains(.,'1980')],CLEAR")
+                //Or just cgi param
+                .run("SET relative:caterpillar\\?keywords=excavator&manufacturer_name=CATERPILLAR&manufacturer_year_dt=${int.year},2204;")
+                .run("SET exc.xpath://a[contains(.,'${int.year} CATERPILLAR')];expected://*[contains(.,'Meter Reads')];")//*[@id="11576181_ci_title"]/a
+                .run("GET ${url.root}/${relative}|SYNC?MAX 25sec,UNTIL ${exc.xpath},VISIBLE")
+                //.run("PAUSE 8sec")
+                .run("CLICK ${exc.xpath}|SYNC?MAX 20sec,UNTIL ${expected},VISIBLE")
+                .run("ASSERT THIS CONTAINS ${expected}");
 
         int res = ui.getResults();
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
+
+        System.out.println("Browser and chromedriver will close after 5 sec!");
+        //ui = ui.run("PAUSE 5sec")
+        //       .run("STOP Chrome");
     }
 
     @Test
@@ -101,9 +153,11 @@ public class UiTest {
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
 
+
         //Pause for given time and close the browser:
-        ui.pause("30sec")
-                .stop();
+        System.out.println("Browser and chromedriver will close after 5 sec!");
+        ui = ui.pause("5sec")
+               .stop();
     }
 
     @Test

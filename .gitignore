@@ -1,6 +1,6 @@
 target/*
 .idea/*
-
+*chromeVersion.txt
 
 
 #Ignore thumbnails created by Windows

@@ -55,7 +55,7 @@ public class UiTest {
     }
 
     @Test
-    public void testExample2UsingRun() {
+    public void testGoogleSearchUsingRun() {
         iUi ui = new Ui();
         //NOTE: below use straight values, no SET values type ${}
         //      however repetition of the same string in
@@ -77,7 +77,7 @@ public class UiTest {
     }
 
     @Test
-    public void testExample2UsingAtomicActions() {
+    public void testGoogleSearchUsingAtomicActions() {
         iUi ui = new Ui();
 
         ui = ui.set("url:https\\://www.google.com/;exp.xpath://*[contains(.,'Google')];")
@@ -100,7 +100,7 @@ public class UiTest {
     }
 
     @Test
-    public void testExample3UsingRun() {
+    public void testRitchieBrosUsingRun() {
         iUi ui = new Ui();
 
         /**NOTE: reusing the begining of test1 and change "server" and "exp.xpath"
@@ -138,31 +138,55 @@ public class UiTest {
         assertTrue(res == 0);
 
         System.out.println("Browser and chromedriver will close after 5 sec!");
-        //ui = ui.run("PAUSE 5sec")
-        //       .run("STOP Chrome");
+        ui = ui.run("PAUSE 5sec")
+               .run("STOP Chrome");
     }
 
     @Test
-    public void testExample3UsingAtomicActions() {
+    public void testRitchieBrosUsingAtomicActions() {
         iUi ui = new Ui();
 
-        ui = ui.set("")
-                .start("");//....
+        /**NOTE: reusing the begining of test1 and change "server" and "exp.xpath"
+         * there is an automated gmail search script using the same approach
+         * the mail class is not included in this project
+         */
+        ui = ui.set("server:rbauction;url.root:https\\://www.${server}.com;")
+                .set("url:${url.root};")
+                .set("exp.xpath://*[contains(.,'auction')];")
+                .set("int.year:2019 - 2;")
+                .start("Chrome")
+                .get("${url}","MAX 15sec,UNTIL ${exp.xpath}",false)
+                .assertUi("THIS CONTAINS ${exp.xpath}","Failed to load page", false)
+                .set("user.email:bogdan.nica.van@gmail.com;user.pass:Bogdan1234")
+                .click("//a[contains(.,'Sign In')]","MAX 20sec,UNTIL //*[contains(@id,'_login')]",false)
+                .text("${user.email}","//*[contains(@id,'_login')]", false)//*[@id="_58_login"]
+                .text("${user.pass}","//*[contains(@id,'_password')]",false)
+                .click("//input[@title='Sign In']","MAX 15sec,UNTIL //*[contains(.,'Hello b')]",false)
+                .assertUi("THIS CONTAINS //*[contains(.,'Hello b')]","Failed to login",false)
+                .text("excavator","//*[@id=\"simple-keyword-search\"]",false)//*[@id="simple-keyword-search"]
+                .click("//*[@id=\"keyword-submit\"]","MAX 25sec,UNTIL //*[contains(.,'excavator')],VISIBLE",false)//*[@id="keyword-submit"]
+                .assertUi("THIS CONTAINS //button[contains(.,'Add to Watchlist')]","Failed to search", false)
+                .set("relative:caterpillar\\?keywords=excavator&manufacturer_name=CATERPILLAR&manufacturer_year_dt=${int.year},2204;")
+                .set("exc.xpath://a[contains(.,'${int.year} CATERPILLAR')];expected://*[contains(.,'Meter Reads')];")//*[@id="11576181_ci_title"]/a
+                .get("${url.root}/${relative}","MAX 25sec,UNTIL ${exc.xpath},VISIBLE",false)
+                //.run("PAUSE 8sec")
+                .click("${exc.xpath}","MAX 20sec,UNTIL ${expected},VISIBLE",false)
+                .assertUi("THIS CONTAINS ${expected}", "failed to find item",false);
 
         int res = ui.getResults();
         System.out.println("TEST RETURN: " + res);
         assertTrue(res == 0);
 
-
-        //Pause for given time and close the browser:
         System.out.println("Browser and chromedriver will close after 5 sec!");
         ui = ui.pause("5sec")
-               .stop();
+              .stop();
     }
 
     @Test
     public void find() {
-        FeedData fd =new FeedData("FIND  //*[contains(.,'Bet Id')]|SYNC?bet.id,REGEX .+\\?Bet Id.+\\?[>](\\d+)[<].+");
+        //this can be used to find strings in the page's source.
+        // It can be extended to find strings in DOM as well
+        FeedData fd = new FeedData("FIND  //*[contains(.,'Bet Id')]|SYNC?bet.id,REGEX .+\\?Bet Id.+\\?[>](\\d+)[<].+");
     }
 
     public void testTemplate() {
